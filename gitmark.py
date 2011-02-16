@@ -13,9 +13,24 @@ import re
 import hashlib
 import csv
 import subprocess
+import imp
 from optparse import OptionParser
 
-from settings import *
+# XDG Defaults
+if 'XDG_CONFIG_HOME' not in os.environ:
+    os.environ['XDG_CONFIG_HOME'] = os.path.expandvars('$HOME/.config')
+if 'XDG_DATA_HOME' not in os.environ:
+    os.environ['XDG_DATA_HOME'] = os.path.expandvars('$HOME/.local/share')
+if 'XDG_CACHE_HOME' not in os.environ:
+    os.environ['XDG_CACHE_HOME'] = os.path.expandvars('$HOME/.cache')
+
+# Settings from environment or defaults
+BASE_PATH = os.environ.get('GITMARK_BASE', os.path.expandvars('$XDG_DATA_HOME/gitmark'))
+os.environ['GIT_DIR'] = os.path.join(BASE_PATH, '.git')
+os.environ['GIT_WORK_TREE'] = BASE_PATH
+
+TAG_PATH = os.environ.get('GITMARK_TAGS', os.path.join(BASE_PATH, 'tags'))
+CONTENT_PATH = os.environ.get('GITMARK_CONTENT', os.path.join(BASE_PATH, 'content'))
 
 # Arguments are passed directly to git, not through the shell, to avoid the
 # need for shell escaping. On Windows, however, commands need to go through the
@@ -69,27 +84,41 @@ class gitMark(object):
     def gitPush(self):
         pipe = subprocess.Popen("git push origin master", shell=True)
         pipe.wait()
-        
+
+    def gitInit(self):
+        pipe = subprocess.Popen("git init", shell=True)
+        pipe.wait()
+
+    def createDirectory(self, path):
+        head, tail = os.path.split(path.rstrip('/'))
+        if not os.path.exists(head):
+            self.createDirectory(head)
+        os.mkdir(path, 0755)
+        if path == BASE_PATH:
+            self.gitInit()
+
     def saveContent(self, filename, content):
+        path = os.path.join(CONTENT_PATH, filename)
         try:
-            f = open('%s%s' % (CONTENT_PATH, filename), 'w')
-        except IOError: #likely the dir doesn't exist
-            os.mkdir(CONTENT_PATH,0755)
-            f = open('%s%s' % (CONTENT_PATH, filename), 'w')
+            f = open(path, 'w')
+        except IOError, e: #likely the dir doesn't exist
+            self.createDirectory(CONTENT_PATH)
+            f = open(path, 'w')
             
         f.write(content)
         f.close()
-        return '%s%s' % (CONTENT_PATH, filename)
+        return path
         
     def saveTagData(self, tag, url, title, content_filename):
+        path = os.path.join(TAG_PATH, tag)
         try:
-            tag_writer = csv.writer(open('%s%s' % (TAG_PATH, tag), 'a'))
-        except IOError:
-            os.mkdir(TAG_PATH,0755)
-            tag_writer = csv.writer(open('%s%s' % (TAG_PATH, tag), 'a'))
+            tag_writer = csv.writer(open(path, 'a'))
+        except IOError, e:
+            self.createDirectory(TAG_PATH)
+            tag_writer = csv.writer(open(path, 'a'))
             
         tag_writer.writerow([url, title, content_filename])
-        return '%s%s' % (TAG_PATH, tag)
+        return path
 
     def parseTitle(self, content):
         re_htmltitle = re.compile(".*<title>(.*)</title>.*")
