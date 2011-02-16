@@ -11,7 +11,6 @@ import sys, os
 import urllib
 import re
 import hashlib
-import csv
 import subprocess
 import imp
 from optparse import OptionParser
@@ -112,12 +111,12 @@ class gitMark(object):
     def saveTagData(self, tag, url, title, content_filename):
         path = os.path.join(TAG_PATH, tag)
         try:
-            tag_writer = csv.writer(open(path, 'a'))
+            tag_file = open(path, 'a')
         except IOError, e:
             self.createDirectory(TAG_PATH)
-            tag_writer = csv.writer(open(path, 'a'))
-            
-        tag_writer.writerow([url, title, content_filename])
+            tag_file = open(path, 'a')
+        print >> tag_file, '\t'.join([url, title, content_filename])
+        tag_file.close()
         return path
 
     def parseTitle(self, content):
@@ -128,7 +127,7 @@ class gitMark(object):
         except AttributeError:
             title = '[No Title]'
         
-        return title
+        return re.sub('[\t\n]+', ' ', title)
         
     def generateHash(self, text):
         m = hashlib.md5()
