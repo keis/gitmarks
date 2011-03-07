@@ -48,11 +48,14 @@ class gitMark(object):
             print >>sys.stderr, ("Error: No url found")
             return
 
-        content = self.getContent(url)
-        title = self.parseTitle(content)
+        title = options['title']
+        content = None
+
+        if title is None:
+            content = self.getContent(url)
+            title = self.parseTitle(content)
         content_filename = self.generateHash(url)
         
-        modified.append(self.saveContent(content_filename, content))
         tags = ['all']
         tags.extend(options['tags'].split(','))
         for tag in tags:
@@ -62,7 +65,10 @@ class gitMark(object):
             if '/' in t:
                 t = ''.join(t.split('/'))
             modified.append(self.saveTagData(t, url, title, content_filename))
-            
+
+        if content is None:
+            content = self.getContent(url)
+        modified.append(self.saveContent(content_filename, content))
         self.gitAdd(modified)
         
         commit_msg = options['msg']
@@ -153,8 +159,9 @@ if __name__ == '__main__':
     parser.add_option("-p", "--push", dest="push", action="store_false", default=True, help="don't push to origin.")
     parser.add_option("-t", "--tags", dest="tags", action="store", default='notag', help="comma seperated list of tags")
     parser.add_option("-m", "--message", dest="msg", action="store", default=None, help="specify a commit message (default is 'adding [url]')")
+    parser.add_option("-T", "--title", dest="title", action="store", default=None, help="title of the bookmark (default is the title of the document if html, or else 'No Title')")
     (options, args) = parser.parse_args()
     
-    opts = {'push': options.push, 'tags': options.tags, 'msg': options.msg}
+    opts = {'push': options.push, 'tags': options.tags, 'msg': options.msg, 'title': options.title}
     
     g = gitMark(opts, args)
